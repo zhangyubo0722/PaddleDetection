@@ -51,7 +51,7 @@ from ppdet.modeling.lane_utils import imshow_lanes
 
 from .callbacks import Callback, ComposeCallback, LogPrinter, Checkpointer, WiferFaceEval, VisualDLWriter, SniperProposalsGenerator, WandbCallback, SemiCheckpointer, SemiLogPrinter
 from .export_utils import _dump_infer_config, _prune_input_spec, apply_to_static
-from .naive_sync_bn import convert_syncbn
+from .naive_sync_bn import convert_syncbn, convert_bn
 
 from paddle.distributed.fleet.utils.hybrid_parallel_util import fused_allreduce_gradients
 
@@ -1265,6 +1265,7 @@ class Trainer(object):
             self.model.__delattr__('aux_head')
         self.model.eval()
         model = copy.deepcopy(self.model)
+        convert_bn(model)
 
         # add `export_mode` attr for all layers
         for layer in self.model.sublayers(include_self=True):
