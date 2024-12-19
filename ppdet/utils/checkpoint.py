@@ -27,6 +27,13 @@ from .download import get_weights_path
 from .logger import setup_logger
 logger = setup_logger(__name__)
 
+try:
+    import encryption
+    encrypted = encryption.is_encryption_needed()
+except ImportError:
+    logger.info("Skipping import of the encryption module.")
+    encrypted = False
+
 def convert_to_dict(obj):
     if isinstance(obj, dict):
         return {k: convert_to_dict(v) for k, v in obj.items()}
@@ -430,8 +437,12 @@ def update_train_results(config,
     if prefix == "best_model":
         train_results["models"]["best"]["score"] = metric_info["metric"]
         for tag in save_model_tag:
-            train_results["models"]["best"][tag] = os.path.join(
-                prefix, f"{prefix}.{tag}")
+            if tag == "pdparams" and encrypted:
+                train_results["models"]["best"][tag] = os.path.join(
+                    prefix, f"{prefix}.encrypted.{tag}")
+            else:
+                train_results["models"]["best"][tag] = os.path.join(
+                    prefix, f"{prefix}.{tag}")
         for tag in save_inference_tag:
             train_results["models"]["best"][tag] = os.path.join(
                 prefix, "inference", f"inference.{tag}" if tag != "inference_config" else "inference.yml")
@@ -441,8 +452,12 @@ def update_train_results(config,
                 f"last_{i}"].copy()
         train_results["models"][f"last_{1}"]["score"] = metric_info["metric"]
         for tag in save_model_tag:
-            train_results["models"][f"last_{1}"][tag] = os.path.join(
-                prefix, f"{prefix}.{tag}")
+            if tag == "pdparams" and encrypted:
+                train_results["models"][f"last_{1}"][tag] = os.path.join(
+                    prefix, f"{prefix}.encrypted.{tag}")
+            else:
+                train_results["models"][f"last_{1}"][tag] = os.path.join(
+                    prefix, f"{prefix}.{tag}")
         for tag in save_inference_tag:
             train_results["models"][f"last_{1}"][tag] = os.path.join(
                 prefix, "inference", f"inference.{tag}" if tag != "inference_config" else "inference.yml")

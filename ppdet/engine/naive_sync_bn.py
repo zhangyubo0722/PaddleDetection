@@ -95,3 +95,13 @@ def convert_syncbn(model):
             setattr(model, n, syncbn)
         else:
             convert_syncbn(m)
+
+
+def convert_bn(model):
+    for n, m in model.named_children():
+        if isinstance(m, nn.SyncBatchNorm):
+            bn = nn.BatchNorm2D(m._num_features, m._momentum, m._epsilon, m._weight_attr, m._bias_attr)
+            bn.set_dict(m.state_dict())
+            setattr(model, n, bn)
+        else:
+            convert_bn(m)

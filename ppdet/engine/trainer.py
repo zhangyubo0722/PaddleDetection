@@ -53,7 +53,7 @@ from ppdet.modeling.lane_utils import imshow_lanes
 
 from .callbacks import Callback, ComposeCallback, LogPrinter, Checkpointer, WiferFaceEval, VisualDLWriter, SniperProposalsGenerator, WandbCallback, SemiCheckpointer, SemiLogPrinter
 from .export_utils import _dump_infer_config, _prune_input_spec, apply_to_static
-from .naive_sync_bn import convert_syncbn
+from .naive_sync_bn import convert_syncbn, convert_bn
 
 from paddle.distributed.fleet.utils.hybrid_parallel_util import fused_allreduce_gradients
 
@@ -94,7 +94,7 @@ class Trainer(object):
                 except:
                     pass
             if not os.path.exists(self.cfg.save_dir):
-                os.mkdir(self.cfg.save_dir)
+                os.makedirs(self.cfg.save_dir)
             with open(os.path.join(self.cfg.save_dir, "config.yaml"), "w") as f:
                 config_dict = convert_to_dict(self.cfg)
                 config_dict = {k: v for k, v in config_dict.items() if v != {}}
@@ -1273,6 +1273,7 @@ class Trainer(object):
             self.model.__delattr__('aux_head')
         self.model.eval()
         model = copy.deepcopy(self.model)
+        convert_bn(model)
 
         # add `export_mode` attr for all layers
         for layer in self.model.sublayers(include_self=True):
@@ -1295,6 +1296,10 @@ class Trainer(object):
 
         # dy2st and save model
         if 'slim' not in self.cfg or 'QAT' not in self.cfg['slim_type']:
+            try:
+                import encryption
+            except ModuleNotFoundError:
+                print("failed to import encryption")
             if self.cfg.get("export_with_pir", False):
                 paddle_version = version.parse(paddle.__version__)
                 assert (paddle_version >= version.parse(
