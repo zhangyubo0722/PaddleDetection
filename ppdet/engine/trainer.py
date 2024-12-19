@@ -1145,6 +1145,21 @@ class Trainer(object):
         name, ext = os.path.splitext(image_name)
         return os.path.join(output_dir, "{}".format(name)) + ext
 
+    def _model_to_static(self, model, input_spec, prune_input=True):
+        if prune_input:
+            static_model = paddle.jit.to_static(
+                model, input_spec=input_spec, full_graph=True)
+            # NOTE: dy2st do not pruned program, but jit.save will prune program
+            # input spec, prune input spec here and save with pruned input spec
+            pruned_input_spec = _prune_input_spec(
+                input_spec, static_model.forward.main_program,
+                static_model.forward.outputs)
+        else:
+            static_model = None
+            pruned_input_spec = input_spec
+        
+        return static_model, pruned_input_spec
+
     def _get_infer_cfg_and_input_spec(self,
                                       save_dir,
                                       prune_input=True,
@@ -1226,18 +1241,8 @@ class Trainer(object):
                 "full_img_path": str,
                 "img_name": str,
             })
-        if prune_input:
 
-            static_model = paddle.jit.to_static(
-                model, input_spec=input_spec, full_graph=True)
-            # NOTE: dy2st do not pruned program, but jit.save will prune program
-            # input spec, prune input spec here and save with pruned input spec
-            pruned_input_spec = _prune_input_spec(
-                input_spec, static_model.forward.main_program,
-                static_model.forward.outputs)
-        else:
-            static_model = None
-            pruned_input_spec = input_spec
+        static_model, pruned_input_spec = self._model_to_static(model, input_spec, prune_input)
 
         # TODO: Hard code, delete it when support prune input_spec.
         if self.cfg.architecture == 'PicoDet' and not export_post_process:
@@ -1259,7 +1264,7 @@ class Trainer(object):
                         shape=image_shape, name='image')
                 }]
 
-        return static_model, pruned_input_spec
+        return static_model, pruned_input_spec, input_spec
 
     def export(self, output_dir='output_inference', for_fd=False):
         if hasattr(self.model, 'aux_neck'):
@@ -1285,8 +1290,7 @@ class Trainer(object):
 
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-
-        static_model, pruned_input_spec = self._get_infer_cfg_and_input_spec(
+        static_model, pruned_input_spec, input_spec = self._get_infer_cfg_and_input_spec(
             save_dir, yaml_name=yaml_name, model=model)
 
         # dy2st and save model
@@ -1299,8 +1303,8 @@ class Trainer(object):
                         static_model.forward.rollback()
                         with paddle.pir_utils.OldIrGuard():
                             save_path_no_pir = save_dir
-                            static_model, pruned_input_spec, = self._get_infer_cfg_and_input_spec(
-                                save_dir, yaml_name=yaml_name, model=model)
+                            static_model, pruned_input_spec = self._model_to_static(
+                                model, input_spec)
                             paddle.jit.save(static_model, os.path.join(save_path_no_pir, save_name), input_spec=pruned_input_spec)
                     else:
                         save_path_pir = os.path.join(os.path.dirname(save_dir), f"{os.path.basename(save_dir)}_pir")
