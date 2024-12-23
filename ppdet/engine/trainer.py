@@ -1295,28 +1295,17 @@ class Trainer(object):
 
         # dy2st and save model
         if 'slim' not in self.cfg or 'QAT' not in self.cfg['slim_type']:
-            paddle_version = version.parse(paddle.__version__)
-            if (paddle_version >= version.parse(
-                    '3.0.0b2') or paddle_version == version.parse('0.0.0')) and os.environ.get("FLAGS_enable_pir_api", None) not in ["0", "False"]:
-                for enable_pir in [True, False]:
-                    if not enable_pir:
-                        static_model.forward.rollback()
-                        with paddle.pir_utils.OldIrGuard():
-                            save_path_no_pir = save_dir
-                            static_model, pruned_input_spec = self._model_to_static(
-                                model, input_spec)
-                            paddle.jit.save(static_model, os.path.join(save_path_no_pir, save_name), input_spec=pruned_input_spec)
-                    else:
-                        save_path_pir = os.path.join(os.path.dirname(save_dir), f"{os.path.basename(save_dir)}_pir")
-                        paddle.jit.save(static_model, os.path.join(save_path_pir, save_name), input_spec=pruned_input_spec)
-                        shutil.copy(
-                            os.path.join(save_dir, yaml_name),
-                            os.path.join(
-                                save_path_pir, yaml_name
-                            ),
-                        )
-            else:
+            if self.cfg.get("export_with_pir", False):
+                paddle_version = version.parse(paddle.__version__)
+                assert (paddle_version >= version.parse(
+                        '3.0.0b2') or paddle_version == version.parse('0.0.0')) and os.environ.get("FLAGS_enable_pir_api", None) not in ["0", "False"]
                 paddle.jit.save(static_model, os.path.join(save_dir, save_name), input_spec=pruned_input_spec)
+            else:
+                static_model.forward.rollback()
+                with paddle.pir_utils.OldIrGuard():
+                    static_model, pruned_input_spec = self._model_to_static(
+                        model, input_spec)
+                    paddle.jit.save(static_model, os.path.join(save_dir, save_name), input_spec=pruned_input_spec)
         else:
             self.cfg.slim.save_quantized_model(
                 self.model,
