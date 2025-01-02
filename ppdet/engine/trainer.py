@@ -1276,7 +1276,7 @@ class Trainer(object):
         convert_bn(model)
 
         # add `export_mode` attr for all layers
-        for layer in self.model.sublayers(include_self=True):
+        for layer in model.sublayers(include_self=True):
             layer.export_mode = True
 
         model_name = os.path.splitext(os.path.split(self.cfg.filename)[-1])[0]
