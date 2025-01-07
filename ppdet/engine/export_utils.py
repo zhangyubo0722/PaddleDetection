@@ -245,14 +245,12 @@ def _parse_reader(reader_cfg, dataset_cfg, metric, arch, image_shape):
 
     fuse_normalize = reader_cfg.get('fuse_normalize', False)
     sample_transforms = reader_cfg['sample_transforms']
-    hpi_dynamic_shape = None
     for st in sample_transforms[1:]:
         for key, value in st.items():
             p = {'type': key}
             if key == 'Resize':
                 if int(image_shape[1]) != -1:
                     value['target_size'] = image_shape[1:]
-                    hpi_dynamic_shape = image_shape[1:]
                 value['interp'] = value.get('interp', 1)  # cv2.INTER_LINEAR
             if fuse_normalize and key == 'NormalizeImage':
                 continue
@@ -277,7 +275,7 @@ def _parse_reader(reader_cfg, dataset_cfg, metric, arch, image_shape):
                     preprocess_list.append(p)
                     break
 
-    return preprocess_list, label_list, hpi_dynamic_shape
+    return preprocess_list, label_list
 
 
 def _parse_tracker(tracker_cfg):
@@ -287,7 +285,7 @@ def _parse_tracker(tracker_cfg):
     return tracker_params
 
 
-def _dump_infer_config(config, path, image_shape, model):
+def _dump_infer_config(config, path, image_shape, model, input_spec):
     arch_state = False
     from ppdet.core.config.yaml_helpers import setup_orderdict
     setup_orderdict()
@@ -381,13 +379,16 @@ def _dump_infer_config(config, path, image_shape, model):
         reader_cfg = config['TestReader']
         dataset_cfg = config['TestDataset']
 
-    infer_cfg['Preprocess'], infer_cfg['label_list'], hpi_dynamic_shape = _parse_reader(
+    infer_cfg['Preprocess'], infer_cfg['label_list'] = _parse_reader(
         reader_cfg, dataset_cfg, config['metric'], label_arch, image_shape[1:])
     if config.get("uniform_output_enabled", None):
+        for d in input_spec:
+            if 'image' in d:
+                hpi_dynamic_shape = list(d['image'].shape[2:])
         def get_dynamic_shapes(hpi_shape):
             return [[1, 3] + hpi_shape, [1, 3] + hpi_shape, [8, 3] + hpi_shape]
 
-        dynamic_shapes = get_dynamic_shapes(hpi_dynamic_shape) if hpi_dynamic_shape else [
+        dynamic_shapes = get_dynamic_shapes(hpi_dynamic_shape) if hpi_dynamic_shape != [-1, -1] else [
             [1, 3, 320, 320],
             [1, 3, 640, 640],
             [8, 3, 1280, 1280]

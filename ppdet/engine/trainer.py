@@ -1217,11 +1217,6 @@ class Trainer(object):
         if export_post_process and not export_benchmark:
             image_shape = [None] + image_shape[1:]
 
-        # Save infer cfg
-        _dump_infer_config(self.cfg,
-                           os.path.join(save_dir, yaml_name), image_shape,
-                           model)
-
         input_spec = [{
             "image": InputSpec(
                 shape=image_shape, name='image'),
@@ -1263,6 +1258,11 @@ class Trainer(object):
                     "image": InputSpec(
                         shape=image_shape, name='image')
                 }]
+        
+        # Save infer cfg
+        _dump_infer_config(self.cfg,
+                           os.path.join(save_dir, yaml_name), image_shape,
+                           model, input_spec)
 
         return static_model, pruned_input_spec, input_spec
 
@@ -1299,7 +1299,7 @@ class Trainer(object):
             try:
                 import encryption
             except ModuleNotFoundError:
-                print("failed to import encryption")
+                logger.info("Skipping import of the encryption module.")
             paddle_version = version.parse(paddle.__version__)
             if self.cfg.get("export_with_pir", False):
                 assert (paddle_version >= version.parse(
