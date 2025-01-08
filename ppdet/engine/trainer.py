@@ -1300,16 +1300,19 @@ class Trainer(object):
                 import encryption
             except ModuleNotFoundError:
                 print("failed to import encryption")
+            paddle_version = version.parse(paddle.__version__)
             if self.cfg.get("export_with_pir", False):
-                paddle_version = version.parse(paddle.__version__)
                 assert (paddle_version >= version.parse(
                         '3.0.0b2') or paddle_version == version.parse('0.0.0')) and os.environ.get("FLAGS_enable_pir_api", None) not in ["0", "False"]
                 paddle.jit.save(static_model, os.path.join(save_dir, save_name), input_spec=pruned_input_spec)
             else:
-                static_model.forward.rollback()
-                with paddle.pir_utils.OldIrGuard():
-                    static_model, pruned_input_spec = self._model_to_static(
-                        model, input_spec)
+                if paddle_version >= version.parse('3.0.0b2') or paddle_version == version.parse('0.0.0'):
+                    static_model.forward.rollback()
+                    with paddle.pir_utils.OldIrGuard():
+                        static_model, pruned_input_spec = self._model_to_static(
+                            model, input_spec)
+                        paddle.jit.save(static_model, os.path.join(save_dir, save_name), input_spec=pruned_input_spec)
+                else:
                     paddle.jit.save(static_model, os.path.join(save_dir, save_name), input_spec=pruned_input_spec)
         else:
             self.cfg.slim.save_quantized_model(
