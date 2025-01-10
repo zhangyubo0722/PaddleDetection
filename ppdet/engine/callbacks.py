@@ -222,8 +222,10 @@ class Checkpointer(Callback):
                         logger.warning("Evaluation results empty, this may be due to " \
                                     "training iterations being too few or not " \
                                     "loading the correct weights.")
-                        return
-                    epoch_ap = map_res[key][0]
+                        key = '' # To adapt to PaddleX: Save model weights even when evaluation results are empty.
+                        epoch_ap = 0.0
+                    else:
+                        epoch_ap = map_res[key][0]
                     epoch_metric = {
                         'metric': abs(epoch_ap),
                         'epoch': epoch_id + 1
