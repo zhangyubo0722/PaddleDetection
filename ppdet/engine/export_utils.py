@@ -412,6 +412,8 @@ def _dump_infer_config(config, path, image_shape, model, input_spec):
             "CenterNet",
             "BlazeFace",
             "BlazeFace-FPN-SSH",
+            "PP-YOLOE_seg",
+            "SOLOv2"
         ]
         if any(name in config.get('pdx_model_name', None) for name in model_names_required_imgsize):
             shapes["im_shape"] = [[1, 2], [1, 2], [8, 2]]
